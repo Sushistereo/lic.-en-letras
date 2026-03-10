@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa de Correlatividades — Profesorado en Letras UNSAM</title>
+  <meta name="description" content="Mapa interactivo de correlatividades del Profesorado Universitario en Letras de la UNSAM" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f1a; font-family: 'JetBrains Mono', 'Fira Code', monospace; color: #e0e0e0; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useRef, useEffect, useCallback, useMemo } = React;
+
+    const COURSES = [
+      { id: 1,  name: "Taller de lectura y escritura",                        short: "Taller lect/esc",   sem: 1,  prereqs: [] },
+      { id: 2,  name: "Teoría y crítica literaria I",                         short: "Teoría y crít I",   sem: 1,  prereqs: [] },
+      { id: 3,  name: "Lingüística general",                                  short: "Lingüística gral",  sem: 1,  prereqs: [] },
+      { id: 4,  name: "Filosofía",                                            short: "Filosofía",         sem: 1,  prereqs: [] },
+      { id: 5,  name: "Gramática",                                            short: "Gramática",         sem: 2,  prereqs: [3] },
+      { id: 6,  name: "Alfabetización",                                       short: "Alfabetización",    sem: 2,  prereqs: [1, 2] },
+      { id: 7,  name: "Literatura del siglo XX",                              short: "Lit siglo XX",      sem: 2,  prereqs: [1, 2] },
+      { id: 8,  name: "Pedagogía",                                            short: "Pedagogía",         sem: 2,  prereqs: [] },
+      { id: 9,  name: "Optativa I",                                           short: "Optativa I",        sem: 3,  prereqs: [] },
+      { id: 10, name: "Análisis y producción de materiales",                  short: "Anál/prod mat",     sem: 3,  prereqs: [1, 2, 3] },
+      { id: 11, name: "Retórica",                                             short: "Retórica",          sem: 3,  prereqs: [1, 2] },
+      { id: 12, name: "Literatura argentina II",                              short: "Lit arg II",        sem: 3,  prereqs: [1, 2] },
+      { id: 13, name: "Literatura Infantil y Juvenil",                        short: "Lit Inf y Juv",     sem: 4,  prereqs: [1, 2] },
+      { id: 14, name: "Didáctica de la literatura",                           short: "Didáct literatura", sem: 4,  prereqs: [7, 11, 12] },
+      { id: 15, name: "Lengua y literatura latinas I",                        short: "Latín I",           sem: 4,  prereqs: [] },
+      { id: 16, name: "Teoría y crítica literaria II",                        short: "Teoría y crít II",  sem: 4,  prereqs: [2] },
+      { id: 17, name: "Lengua y literatura latina II",                        short: "Latín II",          sem: 5,  prereqs: [15] },
+      { id: 18, name: "Didáctica I",                                          short: "Didáctica I",       sem: 5,  prereqs: [8] },
+      { id: 19, name: "Literatura latinoamericana II",                        short: "Lit latam II",      sem: 5,  prereqs: [1, 2] },
+      { id: 20, name: "Estudios sociolingüísticos",                           short: "Est socioling",     sem: 5,  prereqs: [5] },
+      { id: 21, name: "Prácticas en educación no formal",                     short: "Práct no formal",   sem: 6,  prereqs: [8, 10, 14] },
+      { id: 22, name: "Historia de la Educación en Argentina y América Latina", short: "Hist educación",  sem: 6,  prereqs: [8] },
+      { id: 23, name: "Didáctica II",                                         short: "Didáctica II",      sem: 6,  prereqs: [18] },
+      { id: 24, name: "Epistemología y conocimiento lingüístico-escolar",     short: "Epist/conoc ling",  sem: 6,  prereqs: [16, 20] },
+      { id: 25, name: "Didáctica de la lengua",                               short: "Didáct lengua",     sem: 7,  prereqs: [5, 20] },
+      { id: 26, name: "Optativa II",                                          short: "Optativa II",       sem: 7,  prereqs: [] },
+      { id: 27, name: "Literatura del siglo XIX",                             short: "Lit siglo XIX",     sem: 7,  prereqs: [1, 2] },
+      { id: 28, name: "Sociología de la educación",                           short: "Sociología educ",   sem: 7,  prereqs: [8] },
+      { id: 29, name: "Formación y prácticas docentes I",                     short: "FPD I",             sem: 8,  prereqs: [10, 14, 23, 25] },
+      { id: 30, name: "Lengua y literatura griegas I",                        short: "Griego I",          sem: 8,  prereqs: [] },
+      { id: 31, name: "Literatura española",                                  short: "Lit española",      sem: 8,  prereqs: [1, 2] },
+      { id: 32, name: "Análisis del discurso",                                short: "Anál discurso",     sem: 8,  prereqs: [5] },
+      { id: 33, name: "Literatura del Renacimiento y del Barroco",            short: "Lit Renacentista",  sem: 9,  prereqs: [1, 2] },
+      { id: 34, name: "Literatura latinoamericana I",                         short: "Lit latam I",       sem: 9,  prereqs: [1, 2] },
+      { id: 35, name: "Lengua y literatura griegas II",                       short: "Griego II",         sem: 9,  prereqs: [30] },
+      { id: 36, name: "Literatura Medieval",                                  short: "Lit Medieval",      sem: 9,  prereqs: [1, 2] },
+      { id: 37, name: "Literatura argentina I",                               short: "Lit arg I",         sem: 10, prereqs: [1, 2] },
+      { id: 38, name: "Literatura de la Ilustración",                         short: "Lit Ilustración",   sem: 10, prereqs: [1, 2] },
+      { id: 39, name: "Política y legislación de la educación",               short: "Pol/legislación",   sem: 10, prereqs: [8, 22] },
+      { id: 40, name: "Formación y prácticas docentes II",                    short: "FPD II",            sem: 10, prereqs: [10, 14, 23, 25] },
+    ];
+
+    const DESCRIPTIONS = {
+      1: `Las prácticas de lectura y escritura: su estatuto desde una perspectiva de análisis de las producciones propias y ajenas. La construcción de categorías de análisis de las lecturas y escrituras propias y ajenas: análisis del discurso, nueva narratología y manejo de las voces.\n\nLos problemas de las dicotomías narrar y describir; explicar y fundamentar. De los criterios de transparencia y objetividad en las concepciones modernas de la lectura y la escritura hacia los de autoría y polifonía: tensiones con las prácticas efectivas propias y ajenas.\n\nCondiciones de producción de las prácticas de lectura y escritura: variables institucionales y particularidades de los géneros discursivos y los estilos. Reescrituras y relecturas: entre lo individual y lo social. Las huellas históricas en las prácticas de lectura y escritura propias y ajenas. La especificidad de las prácticas de lectura y escritura en la universidad.`,
+      2: `Orígenes de la teoría literaria: de la Poética de Aristóteles a los debates del siglo XX sobre la especificidad del objeto literario. Conformación de la teoría literaria como disciplina moderna en el marco de los debates sobre su autonomía respecto de la Filosofía Estética y las Teorías del Arte: las operaciones fundacionales del formalismo ruso y el estructuralismo.\n\nLos consensos sobre la delimitación de la especificidad literaria: re-presentación de lo "real" y modos de narrar lo "real". Verosímil y verosimilitud en los géneros literarios.\n\nTeorías de los géneros literarios. La nueva narratología y sus replanteos de los modelos estructuralistas. Teorías de la intertextualidad francesas y rusas. El posestructuralismo en la teoría literaria: debates en torno al problema del biografismo y a la noción de "autor". Las teorías de la recepción: el lector como nueva categoría literaria. Estado actual del campo: de la teoría literaria a la irrupción de la crítica literaria.\n\nLa crítica literaria y su estatuto diferencial respecto de la teoría. Las lógicas epistemológicas y metodológicas de la crítica literaria. El rol de la crítica literaria en la constitución de cánones y el problema del canon. Tradiciones críticas.`,
+      3: `Relaciones de la lingüística con otras disciplinas: su historicidad y delimitación como ciencia moderna.\n\nDebates sobre la naturaleza o el carácter de convención del objeto de estudio desde la antigüedad clásica hasta la actualidad.\n\nDelimitación del lenguaje y lengua: problemas epistemológicos y metodológicos. El lenguaje verbal: características y funciones. Lenguas naturales y lenguas artificiales: unidades de análisis.\n\nLa lingüística por niveles: gramatical, fónico y semántico. El problema del léxico.\n\nSurgimiento de la lingüística formalista y funcionalista. El estructuralismo. El signo lingüístico. Lengua-habla. Sistema, norma, habla. Sincronía-diacronía. Oposición y valor. Sintagma-paradigma. Forma y sustancia.\n\nEl generativismo: la posición innatista. Competencia y actuación. Modelos de análisis.\n\nOtros campos: pragmática y semiótica. Sus objetos de estudio y métodos. Sus relaciones con el análisis del discurso y la teoría de la enunciación.`,
+      4: `Noción y origen de la filosofía.\n\nFilosofía griega: Platón y Aristóteles. El problema del conocimiento y la ciencia.\n\nFilosofía moderna: racionalismo y empirismo; la ilustración; Kant. Hegel.\n\nFilosofía contemporánea: fenomenología; hermenéutica; escuela de Frankfurt, postmodernidad.`,
+      5: `La gramática en tanto noción de lengua en la Antigüedad clásica: continuidades y rupturas. La gramática y la normativa lingüística. La especificidad de la gramática en la lingüística por niveles.\n\nLa oración y la palabra como unidades de análisis. Aspectos léxicos, morfológicos y sintácticos en el análisis gramatical. Diferencias entre sintaxis y semántica. El modelo estructuralista y el modelo generativista: el problema de las nomenclaturas y las clasificaciones. Aspectos sintácticos y semánticos de la morfología derivativa. El comportamiento gramatical de las palabras derivadas. Tiempo y aspecto. El modo. Factores sintácticos y semánticos en las alternancias modales. Indicativo frente a subjuntivo. Construcciones nominales. Clases de oraciones desde el punto de vista del sentido.\n\nObjeto, principios básicos y métodos. Concepto de texto. Propiedades de la textualidad. La coherencia como principio generador de la unidad textual: consistencia, congruencia, cohesión, conexión, comprensibilidad. Nociones de clase y tipo textual. Tipología de textos: principios y criterios de clasificación. Noción de superestructura. Noción de macroestructura. Macrorreglas de supresión, generalización y construcción.`,
+      6: `Definiciones de alfabetización. ¿Nuevas alfabetizaciones? Niveles de la alfabetización. Alfabetización temprana.\n\nAlfabetización y oralidad. Las relaciones de oralidad y escritura desde una perspectiva histórica. La oralidad y la escritura desde una perspectiva psicosocial. Psicologías del desarrollo y psicologías del aprendizaje.\n\nAmbiente alfabetizador. La alfabetización como praxis política. Sentidos de la tarea de alfabetizar. Alfabetización y conciencia. Alfabetización y fracaso escolar. Alfabetización y literatura.\n\nEl trabajo con textos literarios. De la teoría a las prácticas. Experiencias. Registrar la experiencia.`,
+      7: `Marcos historiográficos: Modernidad. Postmodernidad.\n\nMovimientos de modernización (Expresionismo) y de Vanguardia (dadaísmo, futurismo, surrealismo) en poesía.\n\nExperimentación narrativa: de la "nueva novela" a la metaficción postmoderna. Perspectivas de género y cambios formales: utopías negativas, monólogo interior, autorreferencialidad, metalepsis, parodia, no ficción. El nouveau roman, la neovanguardia, el grupo OULIPO. Extraterritorialidad y literaturas menores.\n\nLa disolución del paradigma aristotélico en teatro: simbolismo, grotesco, vanguardia, teatro épico, absurdo.`,
+      8: `Las nociones de 'educación', 'pedagogía' y 'formación'. Breve historia conceptual de dichos términos en la Antigüedad, la Modernidad y su crisis.\n\nEl surgimiento de la pedagogía como problema antropológico y político.\n\nTeoría y praxis en educación. La constitución del discurso teórico de la educación en su relación con la acción educativa. Diferencia y relaciones entre teoría, práctica y praxis. El discurso crítico y utópico en educación.\n\nEl problema normativo en la educación y el debate sobre los valores. Autoridad, valores y educación.\n\nEpistemología de la educación: problema del carácter científico de la educación. Las ciencias de la educación: definición, establecimiento y relaciones interdisciplinarias desde una perspectiva histórica y actual. La relación de la pedagogía con la transmisión del saber y las ciencias.`,
+      9: `Las unidades curriculares optativas posibilitan extender el campo de conocimiento de los estudiantes respecto de la lengua y la literatura, promoviendo el diálogo entre distintas disciplinas como la filosofía, las artes, la educación.\n\nPodrán constituir unidades curriculares optativas algunas de las siguientes propuestas: Literatura y cine; Literatura y música; Literatura y artes visuales; Literatura y estudios de género; Literatura y otros objetos culturales y estéticos; Historia de la enseñanza de la lengua y la literatura; Filosofía del lenguaje; Educación y tecnologías de la información y la comunicación.`,
+      10: `El problema de la transposición didáctica.\n\nConocimiento cotidiano, conocimiento científico, conocimiento escolar: tensiones. Los saberes disciplinares revisitados.\n\nAnálisis de la producción editorial: saber y mercado. Las apropiaciones críticas. Las tradiciones escolares. La construcción de la enunciación: ¿quién habla en los materiales didácticos?\n\nEl autor y los lectores: el lector docente y el lector alumno. Apelaciones e interpelaciones.\n\nEl discurso didáctico. El lugar de la explicación. Las propuestas de actividades. Didáctica y creatividad. Los géneros de los materiales didácticos. Manuales y libros de texto: selección y jerarquización de los contenidos. Antologías con propuestas de trabajo. Libros para el docente, capacitación docente. Libros de consignas de trabajo. Libros ELE: aprender el español del Río de la Plata. Educación bilingüe. Cuadernillos fungibles.`,
+      11: `Delimitaciones de la Retórica.\n\nDescripción de los elementos fundamentales de la teoría retórica.\n\nElementos de teoría retórica. Momentos del quehacer retórico: intellectio, inventio, dispositio, elocutio, memoria, actio. Partes del discurso: exordio, narración, argumentación, peroración.\n\nMarco Fabio Quintiliano: breve estudio de su producción retórica. Breve estudio de las ideas retóricas de San Agustín.\n\nLa Retórica en la Edad Media. La Retórica en los tiempos del Humanismo. Nueva retórica: grupo Mu. Análisis del discurso. Argumentación.`,
+      12: `Transiciones siglos XIX y XX: debates en torno a la constitución de un campo literario argentino. Resurgimiento del debate sobre el estatuto de la literatura nacional: las polémicas de los intelectuales mitristas y los escritores de la industria cultural. Los casos de Gálvez, Payró y Caras y Caretas. La literatura como trabajo: Arlt y la profesionalización del escritor. Las vanguardias del '20 y la apuesta estética al humor: Girondo, Olivari, Fernández Moreno y Macedonio Fernández. Después de las vanguardias: los debates sobre el estatuto de la literatura argentina. Borges y "la muerte del gaucho". Hacia una literatura universal escrita por argentinos. El grupo Sur y sus diversificaciones: el fantástico de Borges y Bioy vs. el de Quiroga. Las narrativas de la periferia: Hernández y Moyano. Distintos retornos a la ficcionalización de lo argentino: Silvia Ocampo y la burguesía perversa; Puig entre el chisme y el kitsch. El proyecto cortazariano. Escribir en y sobre la dictadura: Walsh y la non fiction. La historiografía literaria como material de las nuevas narrativas: los casos de Piglia y Saer. Irrupción de la novela histórica: Rivera y Tizón. Los géneros "fuera de canon": poesía de Pizarnik y Thenon; narrativas del humor de Fontanarrosa y García Reig.`,
+      13: `La literatura infantil como género discursivo literario: enunciados característicos, tópicos recurrentes. El cuento, la novela y la poesía para niños. La literatura infantil argentina: tradición constitutiva y poéticas. Figuras retóricas de la narrativa infantil: hipérbole, hipérbaton y metáfora.\n\nProcedimientos literarios característicos de la literatura infantil: mímesis del mundo familiar y privado. Género fantástico: lo extraño y lo ominoso. La parodia y el absurdo. Análisis de diversas poéticas. La construcción de personajes y narradores: los modos de representar el imaginario infantil.`,
+      14: `Enseñar literatura. Cambio y renovación en la enseñanza de la literatura. Historia y modelos didácticos. Estrategias de enseñanza y aprendizaje.\n\nCriterios de recorte, secuenciación y enseñanza de los contenidos en literatura y sus relaciones con los contenidos de lengua.\n\nEl aprendizaje del conocimiento acerca de la literatura y la investigación educativa.\n\nLa construcción del contenido escolar: dimensiones e instancias en la práctica concreta.\n\nDe la retórica a la historiografía. De la historiografía a la teoría literaria.\n\nRelaciones entre prácticas culturales y literatura en la escuela y en el más allá de la escuela.`,
+      15: `La familia de lenguas indoeuropeas y su clasificación. Latín clásico y latín vulgar. Las lenguas neolatinas o romances. Alfabeto latino.\n\nNociones de fonética y prosodia. La cantidad. Morfología nominal: las cinco declinaciones. Adjetivos de primera y de segunda clase. Declinación pronominal. Morfología verbal: la conjugación. Categorías morfológicas del verbo: persona, número, tiempo, modo, aspecto, voz. Los tiempos en los modos indicativo e imperativo. Características de la pasiva latina. El verbo sum. Verbos irregulares. Uso de los casos. Sintaxis del infinitivo. Sintaxis del participio (ablativo absoluto).\n\nLeyendas de los orígenes. Presencia del mito en la literatura latina. Deslindes preliminares: mito, leyenda, cuento popular, saga, ritual.\n\nLa comunicación literaria en Roma. La preservación de la literatura antigua. Dimensiones y características del público literario. Producción y circulación de los libros. La recitatio y el texto escrito. Épica. Comedia y tragedia. Proyección de la literatura latina en las letras europeas y americanas.`,
+      16: `Irrupción de los estudios culturales en el campo de la teoría literaria hacia finales del siglo XX: restitución y replanteo de las relaciones entre literatura, historia, sociedad y cultura.\n\nEl problema de la ausencia de un nuevo paradigma historiográfico: del conocimiento de la literatura en el recorte autor/vida/obra hacia las nociones de campo literario y escritor profesional.\n\nLa tradición de los estudios marxistas ingleses y alemanes. Los aportes de la sociología y la historia de la cultura francesas.\n\nLa construcción de nuevos problemas: del contexto histórico hacia las condiciones sociales, culturales e históricas de la producción y recepción literarias.\n\nLa literatura como institución, ideología, tradición, cánones y mercado: agentes editoriales, intelectuales y crítica literaria.\n\nLas historias de la lectura y la redefinición de las categorías alta/baja cultura y cultura popular: de la categoría "lector" a las de prácticas socioculturales e históricas en relación con la literatura.\n\nEntre estudios culturales, teoría literaria y análisis del discurso: el caso de la sociocrítica.`,
+      17: `Verbos irregulares, defectivos, impersonales, deponentes y semideponentes. Las formas nominales del verbo: infinitivos y participios, gerundio, gerundivo, supino. Verbos irregulares, defectivos y compuestos de sum. Elementos de sintaxis de la oración compuesta. Subordinación: proposiciones incluidas adjetivas y sustantivas con verbo en modo indicativo. Proposiciones adverbiales con verbo en indicativo.\n\nLa comedia latina: Plauto. La experiencia teatral. Sus relaciones con el período de expansión y las transformaciones sociales. Principales características de la comedia plautina. Texto virtual y texto espectacular. La épica en Roma: Virgilio. El principado augustal, instituciones políticas y transformaciones sociales. El código épico. El mito del héroe. Lecturas de la Eneida y su relación con la ideología augustal.\n\nLas formas del género narrativo: los retratos y las digresiones en la prosa historiográfica. La lírica latina: elegía erótica, sátira y la invectiva yámbica. Catulo, Horacio, Tibulo, Propercio, Ovidio. Proyección de la literatura latina en las letras europeas y americanas.`,
+      18: `La noción de didáctica. Origen, desarrollo y campo disciplinar. El problema de la didáctica general y las didácticas específicas.\n\nModelos didácticos: visión histórica del campo de la didáctica y su repercusión sobre las prácticas escolares.\n\nLa relación de la didáctica con el currículum.\n\nLa práctica docente como categoría teórica. La lógica de la práctica. Las características de la práctica docente como práctica social. Práctica pedagógica y práctica docente.\n\nEl análisis didáctico de las prácticas de enseñanza.\n\nLas prácticas de enseñanza. Las prácticas de enseñanza y los docentes. Algunas variables para analizar las prácticas de enseñanza: contrato didáctico, pensamiento práctico, conocimiento práctico, el uso del discurso y la narrativa.`,
+      19: `Los problemas de la historiografía literaria latinoamericana moderna y sus recortes identitarios-territoriales. La identidad cultural latinoamericana como heterogeneidad, hibridez, mestizaje. Transculturación, multirracialidad y doble extraterritorialidad de la literatura latinoamericana. El problema de la literatura del Caribe. Inclusión/exclusión de la literatura brasilera. Tensiones entre cosmopolitismo/regionalismo y las tradiciones literarias propias/vanguardia en la nueva lírica latinoamericana. Vallejo, Huidobro y Neruda. Cultura andina y modernidad. Nuevas perspectivas de escritura y lectura en la novela indigenista: José María Arguedas. Extraterritorialidad y sujeto migrante. La puesta en crisis de la narrativa realista: neorrealismo y realismo mágico: Onetti, Carpentier y García Márquez. Las narrativas autobiográficas femeninas. Poniatowska. La tradición ensayística latinoamericana: los orígenes en el ensayo del 900. El nuevo ensayo cubano. Los ensayos de los "pos": las tematizaciones del exilio.`,
+      20: `Primeros debates sobre el estatuto social de la lengua en la filología y la filosofía del lenguaje como base de la delimitación del campo de la lingüística: signo lingüístico o signo ideológico. De la noción de lengua como sistema a la noción de lengua semiótica.\n\nEl discurso como nueva unidad de análisis. El lenguaje como semiótica social: la rejerarquización del significado.\n\nEl giro lingüístico y la irrupción de los estudios sociales sobre la lengua y el lenguaje: la escuela de Chicago y los estudios sociolingüísticos.\n\nLa noción de cambio lingüístico: variacionismo y los estudios cuantitativos sobre la variación.\n\nConstrucción y redefinición de categorías en la delimitación entre lingüística y sociolingüística: de la noción de lengua a las de lenguas. Lengua estándar, dialectos y registros; la estratificación social de las lenguas y las variables lingüísticas y sociales; lenguas en contacto y multilingüismo. Conflictos lingüísticos y diglosia.\n\nEl problema de la definición de las nociones de competencias comunicativas. Etnografía de la comunicación: la comunidad de habla como objeto de estudio.\n\nLa articulación de estudios sociológicos, culturales e históricos sobre la lengua: las nociones de mercado lingüístico y lengua legítima. Hegemonía y heteromía.\n\nLos aportes a la investigación educativa: códigos y estructura del discurso pedagógico. Políticas lingüísticas y políticas educativas.`,
+      21: `Educación no formal y literatura como campo específico.\n\nExperiencias en la Argentina (Extensión Universitaria –UBA-, Grupo Gente y cuentos y experiencias a partir de los años '80).\n\nPolíticas oficiales, bibliotecas populares, planes de lectura, estrategias de promoción del libro, en el campo de la gestión cultural y educativa.\n\nEspacios de gestión cultural y promoción de la lectura. Políticas, diseño y planificación de líneas de acción. Diversidad de planes y programas en torno a la lectura y la escritura más allá de la escuela.\n\nÁmbitos de la educación no formal (bibliotecas públicas, populares, barriales, centros de jubilados, centros culturales, comedores infantiles, contextos de encierro, otros).\n\nLas prácticas de taller de lectura y escritura en estos contextos. Estrategias didácticas específicas. Trabajo con textos ficcionales y no ficcionales. Divulgación científica y de las ciencias sociales.`,
+      22: `Características generales de la educación de los pueblos originarios de América Latina.\n\nLa conquista, colonización y educación en América Latina.\n\nLos proyectos político-pedagógicos en el proceso de formación del estado nación.\n\nEl orden rosista y el proyecto pedagógico de la generación de 1837.\n\nEl proyecto oligárquico y las alternativas democráticas en la conformación del sistema educativo nacional (1870-1916).\n\nLa educación en la transición del nacionalismo conservador al nacionalismo popular (1940-1955).\n\nDesarrollismo, antiimperialismo y educación (1955-1976).\n\nLas dictaduras y la crisis del sistema educativo moderno.`,
+      23: `El currículum. Estructura curricular para la Educación Secundaria y para la Formación Docente y posibles ámbitos de trabajo para un profesional del campo de la Educación.\n\nEl proyecto curricular institucional (PCI). El proyecto curricular áulico. Elementos de diseño didáctico y formatos de diseño.\n\nSelección, secuenciación y organización de los contenidos.\n\nEl método como vínculo entre el contenido y el sujeto que aprende. La vinculación contenido – método y la "construcción metodológica". Método y recurso didáctico.\n\nOrganización de la clase utilizando algunos recursos didácticos de diseño escrito. Organización de la clase utilizando formas de intervención para trabajar con la búsqueda de información. Organización de la clase utilizando elementos gráficos para trabajar síntesis y relaciones conceptuales. Organización de la clase utilizando trabajo en grupos.\n\nLa evaluación y la acreditación. Diferentes concepciones y enfoques referidos a la evaluación. Los tipos de evaluación de los aprendizajes. Criterios de acreditación. Sistemas de calificación y promoción. Calificación y devolución de la evaluación.`,
+      24: `El currículum como construcción social. Historia de las disciplinas escolares. El concepto de disciplina escolar. La historia de la lectura. Historia de la enseñanza de la lengua. Historia de la enseñanza de la lectura y la escritura en Argentina. Políticas lingüísticas y escuela. La escuela Nueva. La perspectiva estructuralista en la enseñanza de la lengua. Historia de la enseñanza de la literatura. La profesionalización de la tarea de enseñar. Las reformas de planes de estudio y las concepciones de la enseñanza de la literatura. Procesos y transformaciones en la configuración del conocimiento escolar sobre la literatura: el pasaje de la retórica a la historia literaria; hispanismo, oralidad y enseñanza de la lengua y la literatura; la nacionalización de la enseñanza de la literatura; la polémica contra el enciclopedismo.`,
+      25: `Enseñar lengua. Cambio y renovación en la enseñanza de la lengua. Historia y modelos didácticos. Estrategias de enseñanza y de aprendizaje.\n\nRelaciones entre prácticas sociales de la lengua, usos escolares y enseñanza. Criterios de recorte, secuenciación y enseñanza de los contenidos en lengua. El aprendizaje del conocimiento acerca de la lengua y la investigación educativa.\n\nLa construcción del contenido escolar: dimensiones e instancias en la práctica concreta. Estudio de casos.\n\nRelaciones entre lengua y otras prácticas sociales en el interior de la escuela.`,
+      26: `Las unidades curriculares optativas posibilitan extender el campo de conocimiento de los estudiantes respecto de la lengua y la literatura, promoviendo el diálogo entre distintas disciplinas como la filosofía, las artes, la educación.\n\nPodrán constituir unidades curriculares optativas algunas de las siguientes propuestas: Literatura y cine; Literatura y música; Literatura y artes visuales; Literatura y estudios de género; Literatura y otros objetos culturales y estéticos; Historia de la enseñanza de la lengua y la literatura; Filosofía del lenguaje; Educación y tecnologías de la información y la comunicación.`,
+      27: `Las tradiciones del romanticismo: del Sturn Und Drang al bildungroman en Goethe. Del Romanticismo francés hacia las primeras vanguardias: de Víctor Hugo a Baudelaire. Del romanticismo inglés hacia el género gótico: de Lord Byron a Mary Shelley. El gótico alemán o Schauerroman: Hoffmann. La tradición narrativa gótico-policial anglonorteamericana: Stevenson, Poe y Lovecraft. Nacionalismo, romanticismo y clasicismo en la literatura italiana: el Risorgimento. Mazzini y Manzoni. Entre el romanticismo y el realismo rusos: Gogol. Surgimiento de la novela burguesa. Del realismo francés de Stendhal, Balzac y Flaubert al naturalismo de Zolá. Las narrativas realistas y góticas de Maupassant. Revolución industrial en Inglaterra y el realismo de Dickens. El realismo y verismo en la literatura italiana: Belli, Verga, de Amicis. Realismo ruso: Dostoievski y Tolstoi.`,
+      28: `La sociología de la educación. Origen, desarrollo histórico y campo disciplinar.\n\nPrincipales corrientes de la sociología de la educación.\n\nSociedad, cultura y educación. Selección, distribución y acceso a la cultura.\n\nLa educación como producción de sujetos sociales y de subjetividad. Instituciones educativas y sociedad.\n\nSociología del currículo. La educación y el mundo del trabajo.\n\nLa educación y los problemas de la legitimidad y la legitimación de lo social.`,
+      29: `Tradiciones que configuran la formación de docentes en Argentina: normalismo, academicismo, tecnicismo.\n\nLas instituciones de formación de docentes: escuelas normales, universidades e institutos superiores. Evolución histórica y características actuales de la docencia en el nivel primario y secundario.\n\nDesarrollos curriculares para la formación inicial de docentes en Argentina. Formación continua: capacitación, actualización y perfeccionamiento.\n\nCondiciones de trabajo. La feminización de la profesión docente. Normativa que regula el trabajo de los docentes en el nivel primario y secundario.\n\nAsociaciones profesionales y gremialismo docente.\n\nLa práctica docente como eje estructurante de la formación. El vínculo entre la institución formadora y las escuelas de prácticas.\n\nObservación y registro: construcción de una mirada etnográfica.\n\nHacer las prácticas/escribir las prácticas. Diario, guión conjetural y autorregistro. Lectores y escritores/docentes de lecturas y escrituras.`,
+      30: `Nociones básicas sobre los orígenes de la lengua griega. La hipótesis del indoeuropeo. Fonética, escritura y alfabetización. La oposición oralidad-escritura.\n\nEl alfabeto: vocales y diptongos; consonantes: su clasificación; signos complementarios. Palabras variables: nombre y verbo; flexión nominal y flexión verbal. Los casos: valores semánticos y sintácticos; comparación con el sistema de la lengua castellana. La oración nominal. Palabras no flexivas: conjunciones, preposiciones y adverbios. Casos asociados con preposiciones. El verbo: los accidentes de voz, modo, tiempo, persona y número; el verbo eimí. La oración con predicativo sujetivo. Verbos terminados en omega. Voces, tiempos y modos en la oración simple.\n\nLa épica homérica. La lírica arcaica. Formas teatrales: la tragedia y la comedia. Proyección de la literatura griega en las letras europeas y americanas.`,
+      31: `La poesía castellana anterior al siglo XV: la lírica religiosa, la lírica secular, la poesía épica y la lírica cancioneril. La prosa medieval castellana: la prosa didáctica y la prosa de ficción. Romancero y épica del Cid. El teatro medieval castellano.\n\nSiglos de Oro. El siglo XVI. El erasmismo español. La tarea de los humanistas. La lírica en la primera y segunda mitad del siglo XVI. El teatro profano. La novela picaresca. La ficción novelesca en el siglo XVI: el siglo del Quijote. Poesía barroca. La poesía culta: Garcilaso de la Vega. La novela pastoril, morisca y caballeresca. La poesía barroca española: Lope de Vega, Luis de Góngora y Francisco de Quevedo. Lope de Vega y la "Comedia nacional". Pedro Calderón de la Barca: entre dramas filosóficos y el auto sacramental. La novela moderna: Don Quijote de la Mancha. Del siglo de las luces al romanticismo y el realismo. La renovación de las vanguardias: modernismo, simbolismo y surrealismo. La generación del '27. Nuevas narrativas de la modernidad. Narrativa actual.`,
+      32: `Concepto de discurso. Diferencia entre texto y discurso.\n\nCompetencia comunicativa. Esquema de la comunicación: reformulación del esquema clásico. Enunciación.\n\nSubjetividad en el lenguaje. Deixis personal y temporal. Deixis y pronombres.\n\nTiempo. Interacción de categorías secundarias en el verbo: tiempo, aspecto y modo. La flexión verbal en tipos de discurso.\n\nModalización. Concepto de modalidad. Tipos de modalización.\n\nPolifonía. Locutor y enunciadores. Enunciados directos y referidos. Contaminación de voces.`,
+      33: `El concepto de Renacimiento. Studia humanitatis y escolasticismo, retórica y filosofía, ocio y vida activa.\n\nEl género epistolar: Francisco Petrarca, Nicolás Maquiavelo. La cuestión entre antiguos y modernos. El género diálogo. El mundo burgués.\n\nEl género dramático: farsas. La nueva alianza entre la antigüedad y la naturaleza: el mundo clásico; el hombre universal y la ciudad; indagación satírica y género narrativo. El ideal de los perfectos: el Cortesano de Castiglione. El romanzo y la encrucijada de lo real: el Orlando furioso de Ariosto. Su puesta en juego y/o contrapuntos en Gargantúa de Rabelais y en el Quijote de Cervantes.\n\nEl género de la declamación y la indagación satírica: El elogio de la Locura de Erasmo de Rotterdam. Experiencia, avatares del yo y el género ensayo: Miguel de Montaigne.\n\nEl barroco literario en Italia: el marinismo. La comedia dell'arte, la tragedia y la prosa narrativa. El intelectual humanista y la política en Dante. La ciencia y la literatura en Galileo. El preciosismo y la poesía burlesca en Francia. La tragedia francesa: de Corneille a Racine. Molière y la comedia. La poesía religiosa y la comedia alemanas: el impacto de la guerra de los treinta años. El teatro isabelino: Shakespeare y Marlowe. La poesía barroca: Donne y Milton. La restauración monárquica: John Dryden.`,
+      34: `Las crónicas de Indias y la configuración del discurso americano. Las llamadas "crónicas mestizas". Mentalidad medieval y nuevo mundo renacentista. Exilio y sujeto migrante. Humanismo y conquista. Lengua, traducción, memoria e historia. La denuncia de los excesos de la conquista y la defensa de los nativos: la literatura panfletaria.\n\nLa estética barroca, el barroco de Indias y el gongorismo colonial: apropiaciones y asimilaciones culturales. Sor Juana Inés de la Cruz en la ciudad letrada virreinal: la corte, la universidad, el convento. Los derechos femeninos: la poesía amorosa y la experiencia individual.\n\nSiglo XIX y las narrativas domésticas: epistolarios, folletines y diarios íntimos. El modernismo hispanoamericano: las figuras emblemáticas de Darío y Martí como artistas modernos. Transformaciones de la percepción y los sujetos líricos. Cosmopolitismo e incidencias de estéticas europeas. Las tensiones con la mercantilización de la literatura. Poesía y periodismo, poesía y revolución: la nueva colonización norteamericana.\n\nFormas del realismo hispanoamericano: novelas de aprendizaje, naturalismo y decadentismo.`,
+      35: `Pretérito imperfecto; aoristo segundo activo y medio. Futuro activo y medio; aoristo primero activo y medio. Perfecto y pluscuamperfecto activos; perfecto y pluscuamperfecto medio-pasivos; aoristo y futuro pasivos, primeros y segundos. Pronombre relativo. Subordinadas adverbiales comparativas y consecutivas; períodos irreales e iterativo de pasado; proposiciones adjetivas; proposiciones sustantivas de relativo, interrogativas indirectas y sustantivas optativo oblicuo. Construcciones verboidales de participio; genitivo absoluto; proposiciones sustantivas de participio; proposiciones adverbiales temporales y causales. Comparativos y superlativos regulares e irregulares.\n\nConcepto de lo trágico. Orígenes, estructura y evolución de la tragedia: Esquilo, Sófocles y Eurípides. La estructura de la tragedia según Aristóteles. La prosa filosófica. Escritos de retórica y poética. Proyección de la literatura griega en las letras europeas y americanas.`,
+      36: `Panorama histórico y cultural del período medieval. Los espacios literarios en la Edad Media y las condiciones específicas del texto medieval. Su desarrollo en lengua vulgar desde el siglo IX al XV. La épica medieval: el problema de los orígenes. Oralidad y escritura en la composición y difusión del género. Épicas germánica, anglosajona y románica. Las líricas occitana y gallego-portuguesa y sus derivaciones en el dolce stil nuovo italiano. La narrativa cortesana francesa del siglo XII y sus reinterpretaciones en la literatura castellana, italiana y alemana. La palabra clerical y las variedades del discurso didáctico y doctrinal. La literatura alegórica y el "realismo" literario. El teatro medieval. La literatura europea en el contexto de crisis: siglos XIV y XV.`,
+      37: `El problema de la historiografía literaria argentina: cortes y ausencias. La historiografía de Rojas como operación fundacional de la literatura como institución en la Argentina. Una identidad para la literatura argentina: ficcionalización del rosismo y romanticismo como surgimiento de una literatura nacional. Primeras construcciones de los personajes locales: indios, paisanos, mulatos y cautivas. Fundación de modos de inventar el territorio: el desierto. De Echeverría hacia la gauchesca de Ascasubi: el Río de la Plata como categoría organizadora de la producción literaria. La gauchesca como género literario y la nueva invención de la argentinidad. Gutiérrez y el folletín: variaciones sobre el gaucho. La ficcionalización de los sujetos peligrosos para la Nación: Mansilla, la guerra y los indios; Sarmiento, la guerra y los bárbaros más allá del desierto. La literatura como operadora de la política: de Hernández a Lugones y las reutilizaciones de la gauchesca para la dominación cultural y lingüística del inmigrante. Literatura y ficcionalización de la inmigración: las formas del humor en Fray Mocho y Wilde, formas del realismo burgués y la novela de aprendizaje en Cané, naturalismo y decadentismo en Cambaceres.`,
+      38: `Racionalismo y normativa. Racionalismo y didactismo: sátira y géneros de la invectiva.\n\nTeatro neoclásico español: El sí de las niñas de Leandro Fernández de Moratín y el circuito popular de los sainetes de Ramón de la Cruz. Las fábulas de Samaniego.\n\nUtopía satírica y parodia del relato de viajes en los Viajes de Gulliver de Jonathan Swift.\n\nNovela burguesa en Robinson Crusoe de Daniel Defoe y novela filosófica en Cándido de Voltaire.\n\nLas "literaturas del yo" (Gusdorf): sentimentalismo y prerromanticismo. Biografía y autoanálisis: Laurence Sterne, Tristram Shandy; Goethe, Werther; Georg Lichtenberg, aforismos.\n\nLa novela gótica: El castillo de Otranto, de Horace Walpole. Los bandidos de Schiller y la ruptura con el teatro neoclásico. El Emilio de Rousseau. La novela de aprendizaje alemana: el Wilhelm Meister de Goethe.`,
+      39: `Las ciencias sociales y la disciplina. Política Educacional: concepto, evolución y desarrollo.\n\nLa educación como parte de las políticas públicas. Corrientes de pensamiento que influyeron en la conformación del sistema educativo. Transformaciones en el contexto político, económico y social de la Argentina. Crisis del capitalismo de bienestar y hegemonía de la nueva derecha: supuestos y propuestas políticas.\n\nGénesis y desarrollo del sistema educativo argentino. La regulación del sistema: de la Ley 1420 del año 1884 a la legislación actual. Continuidades y rupturas. Conformación de la Educación Superior Universitaria y No Universitaria.\n\nBases constitucionales y legales de la política educacional. Instrumentos de política educacional: normas, gobierno, estructura, expansión de la matrícula, financiamiento. Relación Nación-Provincias. Relación público/privado.\n\nLas políticas para la formación de docentes.`,
+      40: `Evolución histórica y características actuales del trabajo docente en el nivel superior universitario y no universitario.\n\nLos lineamientos curriculares para la formación de docentes en los institutos y el curriculum universitario. Formación continua: postítulos y posgrados.\n\nCarrera docente: evaluación profesional, acreditación académica, reconocimiento comunitario y social.\n\nCondiciones de trabajo en los institutos y en la universidad. Asociaciones profesionales y gremialismo docente.\n\nEl campo de la pedagogía universitaria como construcción de nuevas prácticas.\n\nEnseñar "Letras" (letras modernas, letras clásicas, lingüística) en los institutos y en la universidad. Prácticas de docencia en institutos y en universidades.\n\nLa tradición de la clase expositiva, las clases de trabajos prácticos. Los géneros de escritura y evaluación (monografías, ensayos, trabajos de investigación, otros).\n\nLas "zonas de pasaje" (ingresos y primeras asignaturas de las carreras) como desafíos para la didáctica de la lectura y la escritura en la educación superior.`,
+    };
+
+    const YEAR_COLORS = {
+      1: { border: "#e94560", text: "#e94560", label: "1° Año" },
+      2: { border: "#f5a623", text: "#f5a623", label: "2° Año" },
+      3: { border: "#7ed6df", text: "#7ed6df", label: "3° Año" },
+      4: { border: "#a29bfe", text: "#a29bfe", label: "4° Año" },
+      5: { border: "#55efc4", text: "#55efc4", label: "5° Año" },
+    };
+
+    const getYear = (sem) => Math.ceil(sem / 2);
+
+    function getUnlocks(courseId) {
+      return COURSES.filter(c => c.prereqs.includes(courseId)).map(c => c.id);
+    }
+
+    function getAllDescendants(courseId) {
+      const visited = new Set();
+      const queue = [courseId];
+      while (queue.length > 0) {
+        const current = queue.shift();
+        const unlocks = getUnlocks(current);
+        for (const u of unlocks) {
+          if (!visited.has(u)) {
+            visited.add(u);
+            queue.push(u);
+          }
+        }
+      }
+      return visited;
+    }
+
+    function getAllAncestors(courseId) {
+      const course = COURSES.find(c => c.id === courseId);
+      if (!course) return new Set();
+      const visited = new Set();
+      const queue = [...course.prereqs];
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (!visited.has(current)) {
+          visited.add(current);
+          const parent = COURSES.find(c => c.id === current);
+          if (parent) queue.push(...parent.prereqs);
+        }
+      }
+      return visited;
+    }
+
+    function CurriculumMap() {
+      const [selected, setSelected] = useState(null);
+      const [mode, setMode] = useState("unlocks");
+      const [filterFree, setFilterFree] = useState(false);
+      const svgRef = useRef(null);
+      const containerRef = useRef(null);
+      const [dims, setDims] = useState({ w: 1200 });
+
+      const NODE_W = 130;
+      const NODE_H = 52;
+      const SEM_GAP_Y = 90;
+      const YEAR_GAP_Y = 20;
+      const PAD_TOP = 70;
+
+      const semesters = useMemo(() => {
+        const map = {};
+        COURSES.forEach(c => {
+          if (!map[c.sem]) map[c.sem] = [];
+          map[c.sem].push(c);
+        });
+        return map;
+      }, []);
+
+      const positions = useMemo(() => {
+        const pos = {};
+        let currentY = PAD_TOP;
+        for (let sem = 1; sem <= 10; sem++) {
+          const items = semesters[sem] || [];
+          const totalW = items.length * NODE_W + (items.length - 1) * 16;
+          const startX = (dims.w - totalW) / 2;
+          items.forEach((c, i) => {
+            pos[c.id] = { x: startX + i * (NODE_W + 16), y: currentY };
+          });
+          currentY += SEM_GAP_Y;
+          if (sem % 2 === 0 && sem < 10) currentY += YEAR_GAP_Y;
+        }
+        return pos;
+      }, [dims.w, semesters]);
+
+      const totalH = useMemo(() => {
+        const vals = Object.values(positions);
+        if (vals.length === 0) return 600;
+        return Math.max(...vals.map(p => p.y)) + NODE_H + 40;
+      }, [positions]);
+
+      useEffect(() => {
+        const handleResize = () => {
+          if (containerRef.current) {
+            setDims({ w: Math.max(800, containerRef.current.clientWidth) });
+          }
+        };
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+      }, []);
+
+      const highlighted = useMemo(() => {
+        if (!selected) return { nodes: new Set(), edges: new Set() };
+        const nodes = new Set([selected]);
+        const edges = new Set();
+        if (mode === "unlocks") {
+          const desc = getAllDescendants(selected);
+          desc.forEach(d => nodes.add(d));
+          COURSES.forEach(c => {
+            if (nodes.has(c.id) && c.id !== selected) {
+              c.prereqs.forEach(p => {
+                if (nodes.has(p)) edges.add(p + "-" + c.id);
+              });
+            }
+          });
+          getUnlocks(selected).forEach(u => edges.add(selected + "-" + u));
+        } else {
+          const anc = getAllAncestors(selected);
+          anc.forEach(a => nodes.add(a));
+          COURSES.forEach(c => {
+            if (nodes.has(c.id)) {
+              c.prereqs.forEach(p => {
+                if (nodes.has(p)) edges.add(p + "-" + c.id);
+              });
+            }
+          });
+          const course = COURSES.find(c => c.id === selected);
+          if (course) course.prereqs.forEach(p => edges.add(p + "-" + selected));
+        }
+        return { nodes, edges };
+      }, [selected, mode]);
+
+      const edges = useMemo(() => {
+        const arr = [];
+        COURSES.forEach(c => {
+          c.prereqs.forEach(p => {
+            arr.push({ from: p, to: c.id, key: p + "-" + c.id });
+          });
+        });
+        return arr;
+      }, []);
+
+      const getEdgePath = useCallback((from, to) => {
+        const p1 = positions[from];
+        const p2 = positions[to];
+        if (!p1 || !p2) return "";
+        const x1 = p1.x + NODE_W / 2;
+        const y1 = p1.y + NODE_H;
+        const x2 = p2.x + NODE_W / 2;
+        const y2 = p2.y;
+        const dy = (y2 - y1) * 0.45;
+        return "M " + x1 + " " + y1 + " C " + x1 + " " + (y1 + dy) + ", " + x2 + " " + (y2 - dy) + ", " + x2 + " " + y2;
+      }, [positions]);
+
+      const yearLabels = useMemo(() => {
+        const labels = [];
+        for (let year = 1; year <= 5; year++) {
+          const sem1 = year * 2 - 1;
+          const items = semesters[sem1] || [];
+          if (items.length > 0) {
+            const firstPos = positions[items[0].id];
+            if (firstPos) labels.push({ year, y: firstPos.y + NODE_H / 2 });
+          }
+        }
+        return labels;
+      }, [positions, semesters]);
+
+      return (
+        <div ref={containerRef} style={{ background: "#0f0f1a", minHeight: "100vh", fontFamily: "'JetBrains Mono', monospace", color: "#e0e0e0", overflowX: "auto" }}>
+          <div style={{ padding: "20px 24px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+                <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.5px" }}>
+                  Profesorado en Letras — UNSAM
+                </h1>
+                <a href="index.html" style={{ fontSize: 11, color: "#888", background: "#1a1a2e", border: "1px solid #2a2a4e", borderRadius: 6, padding: "4px 10px", textDecoration: "none", fontFamily: "'JetBrains Mono', monospace", transition: "all 0.2s" }}
+                  onMouseEnter={e => { e.target.style.color = "#a29bfe"; e.target.style.borderColor = "#a29bfe44"; }}
+                  onMouseLeave={e => { e.target.style.color = "#888"; e.target.style.borderColor = "#2a2a4e"; }}>
+                  → Licenciatura
+                </a>
+              </div>
+              <p style={{ fontSize: 11, color: "#666", letterSpacing: "0.5px" }}>
+                MAPA DE CORRELATIVIDADES · Hacé click en una materia para ver sus dependencias
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 4, background: "#1a1a2e", borderRadius: 8, padding: 3 }}>
+              <button onClick={() => setMode("unlocks")} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "none", borderRadius: 6, cursor: "pointer", background: mode === "unlocks" ? "#e94560" : "transparent", color: mode === "unlocks" ? "#fff" : "#888", fontWeight: 500, transition: "all 0.2s" }}>
+                ↓ Qué habilita
+              </button>
+              <button onClick={() => setMode("prereqs")} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "none", borderRadius: 6, cursor: "pointer", background: mode === "prereqs" ? "#a29bfe" : "transparent", color: mode === "prereqs" ? "#fff" : "#888", fontWeight: 500, transition: "all 0.2s" }}>
+                ↑ Qué necesita
+              </button>
+              <button onClick={() => { setFilterFree(!filterFree); setSelected(null); }} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: filterFree ? "1px solid #55efc4" : "none", borderRadius: 6, cursor: "pointer", background: filterFree ? "#55efc422" : "transparent", color: filterFree ? "#55efc4" : "#888", fontWeight: 500, transition: "all 0.2s" }}>
+                Sin correlativas
+              </button>
+              {(selected || filterFree) && (
+                <button onClick={() => { setSelected(null); setFilterFree(false); }} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "1px solid #333", borderRadius: 6, cursor: "pointer", background: "transparent", color: "#888", fontWeight: 500 }}>
+                  ✕ Limpiar
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, padding: "8px 24px 12px", flexWrap: "wrap" }}>
+            {Object.values(YEAR_COLORS).map((yc, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, border: "2px solid " + yc.border, background: "transparent" }} />
+                <span style={{ fontSize: 10, color: "#777", letterSpacing: "0.5px" }}>{yc.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <svg ref={svgRef} width={dims.w} height={totalH} style={{ display: "block" }}>
+            <defs>
+              <marker id="arrow-dim" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M 0 0 L 6 3 L 0 6 Z" fill="#2a2a3e" />
+              </marker>
+              <marker id="arrow-lit" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M 0 0 L 6 3 L 0 6 Z" fill={mode === "unlocks" ? "#e94560" : "#a29bfe"} />
+              </marker>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            {yearLabels.map(({ year, y }) => (
+              <text key={year} x={14} y={y} fill={YEAR_COLORS[year].border} fontSize={10} fontFamily="'Space Grotesk', sans-serif" fontWeight={600} opacity={0.4} dominantBaseline="middle">
+                {year}°
+              </text>
+            ))}
+
+            {edges.map(e => {
+              const isLit = selected && highlighted.edges.has(e.key);
+              return (
+                <path key={e.key} d={getEdgePath(e.from, e.to)} fill="none" stroke={isLit ? (mode === "unlocks" ? "#e94560" : "#a29bfe") : "#1e1e30"} strokeWidth={isLit ? 2 : 1} markerEnd={isLit ? "url(#arrow-lit)" : "url(#arrow-dim)"} opacity={selected ? (isLit ? 0.9 : 0.15) : 0.4} style={{ transition: "all 0.3s ease" }} />
+              );
+            })}
+
+            {(() => {
+              const pos40 = positions[40];
+              if (!pos40) return null;
+              return (
+                <text x={pos40.x + NODE_W / 2} y={pos40.y + NODE_H + 16} textAnchor="middle" fill="#555" fontSize={9} fontFamily="'JetBrains Mono', monospace">
+                  Requiere también Idioma II
+                </text>
+              );
+            })()}
+
+            {(() => {
+              const sem6Items = semesters[6] || [];
+              const sem7Items = semesters[7] || [];
+              if (sem6Items.length === 0 || sem7Items.length === 0) return null;
+              const lastSem6 = positions[sem6Items[sem6Items.length - 1].id];
+              const firstSem7 = positions[sem7Items[0].id];
+              if (!lastSem6 || !firstSem7) return null;
+              const lineY = Math.round((lastSem6.y + NODE_H + firstSem7.y) / 2);
+              const pad = 30;
+              return (
+                <g opacity={selected ? 0.2 : 1} style={{ transition: "opacity 0.3s" }}>
+                  <line x1={pad} y1={lineY} x2={dims.w - pad} y2={lineY} stroke="#f5a623" strokeWidth={1} strokeDasharray="6 4" opacity={0.5} />
+                  <rect x={dims.w / 2 - 178} y={lineY - 11} width={356} height={15} rx={3} fill="#0f0f1a" />
+                  <text x={dims.w / 2} y={lineY} textAnchor="middle" fill="#f5a623" fontSize={9} fontFamily="'JetBrains Mono', monospace" opacity={0.75} dominantBaseline="middle" letterSpacing="0.3">
+                    TÍTULO INTERMEDIO · Mediador universitario en prácticas de oralidad, lectura y escritura
+                  </text>
+                </g>
+              );
+            })()}
+
+            {COURSES.map(c => {
+              const pos = positions[c.id];
+              if (!pos) return null;
+              const year = getYear(c.sem);
+              const color = YEAR_COLORS[year];
+              const isSelected = selected === c.id;
+              const isHighlighted = selected && highlighted.nodes.has(c.id);
+              const isDimmed = (selected && !isHighlighted) || (filterFree && c.prereqs.length > 0);
+              const isFreeHighlighted = filterFree && c.prereqs.length === 0;
+              const unlockCount = getUnlocks(c.id).length;
+
+              return (
+                <g key={c.id} onClick={() => { setFilterFree(false); setSelected(selected === c.id ? null : c.id); }} style={{ cursor: "pointer", transition: "opacity 0.3s" }} opacity={isDimmed ? 0.12 : 1}>
+                  <rect x={pos.x} y={pos.y} width={NODE_W} height={NODE_H} rx={6} fill={isSelected ? color.border + "22" : isFreeHighlighted ? "#55efc411" : "#12121e"} stroke={isSelected ? color.border : isFreeHighlighted ? "#55efc4" : (isHighlighted ? color.border + "aa" : "#1e1e30")} strokeWidth={isSelected || isFreeHighlighted ? 2 : 1} filter={isSelected || isFreeHighlighted ? "url(#glow)" : undefined} />
+                  <rect x={pos.x + 4} y={pos.y + 4} width={18} height={14} rx={3} fill={color.border + "33"} />
+                  <text x={pos.x + 13} y={pos.y + 14} textAnchor="middle" fill={color.text} fontSize={8} fontFamily="'JetBrains Mono', monospace" fontWeight={600}>
+                    {c.id}
+                  </text>
+                  <text x={pos.x + NODE_W / 2} y={pos.y + 28} textAnchor="middle" fill={isSelected || isHighlighted || isFreeHighlighted ? "#eee" : "#999"} fontSize={9} fontFamily="'JetBrains Mono', monospace" fontWeight={isSelected || isFreeHighlighted ? 600 : 400}>
+                    {c.short}
+                  </text>
+                  {(c.prereqs.length > 0 || unlockCount > 0) && (
+                    <text x={pos.x + NODE_W / 2} y={pos.y + 43} textAnchor="middle" fontSize={8} fontFamily="'JetBrains Mono', monospace">
+                      {c.prereqs.length > 0 && <tspan fill="#a29bfe88">↑{c.prereqs.length}</tspan>}
+                      {c.prereqs.length > 0 && unlockCount > 0 && <tspan fill="#444"> · </tspan>}
+                      {unlockCount > 0 && <tspan fill={color.border + "88"}>↓{unlockCount}</tspan>}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+
+          {selected && (() => {
+            const c = COURSES.find(x => x.id === selected);
+            if (!c) return null;
+            const year = getYear(c.sem);
+            const color = YEAR_COLORS[year];
+            const unlocks = getUnlocks(selected);
+            const allDesc = getAllDescendants(selected);
+            const allAnc = getAllAncestors(selected);
+
+            return (
+              <div style={{ position: "sticky", bottom: 0, left: 0, right: 0, background: "linear-gradient(to top, #0f0f1a 80%, transparent)", padding: "24px 24px 16px" }}>
+                <div style={{ background: "#16162a", border: "1px solid " + color.border + "44", borderRadius: 10, padding: "14px 18px", maxWidth: 700, margin: "0 auto" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <span style={{ background: color.border + "33", color: color.text, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {c.id}
+                    </span>
+                    <span style={{ color: "#eee", fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600 }}>
+                      {c.name}
+                    </span>
+                    <span style={{ color: "#555", fontSize: 11, marginLeft: "auto", fontFamily: "'JetBrains Mono', monospace" }}>
+                      Cuatrimestre {c.sem}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 20, fontSize: 11, color: "#888", fontFamily: "'JetBrains Mono', monospace", flexWrap: "wrap" }}>
+                    <div>
+                      <span style={{ color: "#a29bfe" }}>Requiere:</span>{" "}
+                      {c.prereqs.length === 0 ? (
+                        <span style={{ color: "#55efc4" }}>sin correlativas</span>
+                      ) : (
+                        c.prereqs.map((p, i) => {
+                          const pc = COURSES.find(x => x.id === p);
+                          return (
+                            <span key={p}>
+                              {i > 0 && ", "}
+                              <span style={{ color: "#ccc", cursor: "pointer", textDecoration: "underline", textDecorationColor: "#333" }} onClick={(e) => { e.stopPropagation(); setSelected(p); }}>
+                                {pc ? pc.short : p}
+                              </span>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                    <div>
+                      <span style={{ color: "#e94560" }}>Habilita:</span>{" "}
+                      {unlocks.length === 0 ? (
+                        <span style={{ color: "#666" }}>—</span>
+                      ) : (
+                        unlocks.map((u, i) => {
+                          const uc = COURSES.find(x => x.id === u);
+                          return (
+                            <span key={u}>
+                              {i > 0 && ", "}
+                              <span style={{ color: "#ccc", cursor: "pointer", textDecoration: "underline", textDecorationColor: "#333" }} onClick={(e) => { e.stopPropagation(); setSelected(u); }}>
+                                {uc ? uc.short : u}
+                              </span>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                  {(allDesc.size > 0 || allAnc.size > 0) && (
+                    <div style={{ marginTop: 8, fontSize: 10, color: "#555", fontFamily: "'JetBrains Mono', monospace" }}>
+                      {allAnc.size > 0 && <span>Cadena completa hacia atrás: {allAnc.size} materias · </span>}
+                      {allDesc.size > 0 && <span>Cadena completa hacia adelante: {allDesc.size} materias</span>}
+                    </div>
+                  )}
+                  {DESCRIPTIONS[c.id] && (
+                    <div style={{ marginTop: 10, borderTop: "1px solid #1e1e30", paddingTop: 10 }}>
+                      <div style={{ fontSize: 9, color: "#555", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.5px", marginBottom: 6 }}>CONTENIDOS MÍNIMOS</div>
+                      <div style={{ fontSize: 11, color: "#888", fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1.6, maxHeight: 120, overflowY: "auto", paddingRight: 6, whiteSpace: "pre-wrap" }}>
+                        {DESCRIPTIONS[c.id]}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<CurriculumMap />);
+  </script>
+</body>
+</html>
