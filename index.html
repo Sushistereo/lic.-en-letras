@@ -111,6 +111,7 @@
     function CurriculumMap() {
       const [selected, setSelected] = useState(null);
       const [mode, setMode] = useState("unlocks");
+      const [filterFree, setFilterFree] = useState(false);
       const svgRef = useRef(null);
       const containerRef = useRef(null);
       const [dims, setDims] = useState({ w: 1200 });
@@ -248,8 +249,11 @@
               <button onClick={() => setMode("prereqs")} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "none", borderRadius: 6, cursor: "pointer", background: mode === "prereqs" ? "#a29bfe" : "transparent", color: mode === "prereqs" ? "#fff" : "#888", fontWeight: 500, transition: "all 0.2s" }}>
                 ↑ Qué necesita
               </button>
-              {selected && (
-                <button onClick={() => setSelected(null)} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "1px solid #333", borderRadius: 6, cursor: "pointer", background: "transparent", color: "#888", fontWeight: 500 }}>
+              <button onClick={() => { setFilterFree(!filterFree); setSelected(null); }} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: filterFree ? "1px solid #55efc4" : "none", borderRadius: 6, cursor: "pointer", background: filterFree ? "#55efc422" : "transparent", color: filterFree ? "#55efc4" : "#888", fontWeight: 500, transition: "all 0.2s" }}>
+                Sin correlativas
+              </button>
+              {(selected || filterFree) && (
+                <button onClick={() => { setSelected(null); setFilterFree(false); }} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "1px solid #333", borderRadius: 6, cursor: "pointer", background: "transparent", color: "#888", fontWeight: 500 }}>
                   ✕ Limpiar
                 </button>
               )}
@@ -312,27 +316,25 @@
               const color = YEAR_COLORS[year];
               const isSelected = selected === c.id;
               const isHighlighted = selected && highlighted.nodes.has(c.id);
-              const isDimmed = selected && !isHighlighted;
+              const isDimmed = (selected && !isHighlighted) || (filterFree && c.prereqs.length > 0);
+              const isFreeHighlighted = filterFree && c.prereqs.length === 0;
               const unlockCount = getUnlocks(c.id).length;
 
               return (
-                <g key={c.id} onClick={() => setSelected(selected === c.id ? null : c.id)} style={{ cursor: "pointer", transition: "opacity 0.3s" }} opacity={isDimmed ? 0.15 : 1}>
-                  <rect x={pos.x} y={pos.y} width={NODE_W} height={NODE_H} rx={6} fill={isSelected ? color.border + "22" : "#12121e"} stroke={isSelected ? color.border : (isHighlighted ? color.border + "aa" : "#1e1e30")} strokeWidth={isSelected ? 2 : 1} filter={isSelected ? "url(#glow)" : undefined} />
+                <g key={c.id} onClick={() => { setFilterFree(false); setSelected(selected === c.id ? null : c.id); }} style={{ cursor: "pointer", transition: "opacity 0.3s" }} opacity={isDimmed ? 0.12 : 1}>
+                  <rect x={pos.x} y={pos.y} width={NODE_W} height={NODE_H} rx={6} fill={isSelected ? color.border + "22" : isFreeHighlighted ? "#55efc411" : "#12121e"} stroke={isSelected ? color.border : isFreeHighlighted ? "#55efc4" : (isHighlighted ? color.border + "aa" : "#1e1e30")} strokeWidth={isSelected || isFreeHighlighted ? 2 : 1} filter={isSelected || isFreeHighlighted ? "url(#glow)" : undefined} />
                   <rect x={pos.x + 4} y={pos.y + 4} width={18} height={14} rx={3} fill={color.border + "33"} />
                   <text x={pos.x + 13} y={pos.y + 14} textAnchor="middle" fill={color.text} fontSize={8} fontFamily="'JetBrains Mono', monospace" fontWeight={600}>
                     {c.id}
                   </text>
-                  <text x={pos.x + NODE_W / 2} y={pos.y + 28} textAnchor="middle" fill={isSelected || isHighlighted ? "#eee" : "#999"} fontSize={9} fontFamily="'JetBrains Mono', monospace" fontWeight={isSelected ? 600 : 400}>
+                  <text x={pos.x + NODE_W / 2} y={pos.y + 28} textAnchor="middle" fill={isSelected || isHighlighted || isFreeHighlighted ? "#eee" : "#999"} fontSize={9} fontFamily="'JetBrains Mono', monospace" fontWeight={isSelected || isFreeHighlighted ? 600 : 400}>
                     {c.short}
                   </text>
-                  {unlockCount > 0 && (
-                    <text x={pos.x + NODE_W / 2} y={pos.y + 43} textAnchor="middle" fill={color.border + "66"} fontSize={8} fontFamily="'JetBrains Mono', monospace">
-                      habilita {unlockCount}
-                    </text>
-                  )}
-                  {unlockCount === 0 && c.prereqs.length > 0 && (
-                    <text x={pos.x + NODE_W / 2} y={pos.y + 43} textAnchor="middle" fill="#333" fontSize={8} fontFamily="'JetBrains Mono', monospace">
-                      terminal
+                  {(c.prereqs.length > 0 || unlockCount > 0) && (
+                    <text x={pos.x + NODE_W / 2} y={pos.y + 43} textAnchor="middle" fontSize={8} fontFamily="'JetBrains Mono', monospace">
+                      {c.prereqs.length > 0 && <tspan fill="#a29bfe88">↑{c.prereqs.length}</tspan>}
+                      {c.prereqs.length > 0 && unlockCount > 0 && <tspan fill="#444"> · </tspan>}
+                      {unlockCount > 0 && <tspan fill={color.border + "88"}>↓{unlockCount}</tspan>}
                     </text>
                   )}
                 </g>
