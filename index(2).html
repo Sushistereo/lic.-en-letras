@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa de Correlatividades — Lic. en Letras UNSAM</title>
+  <meta name="description" content="Mapa interactivo de correlatividades de la Licenciatura en Letras de la UNSAM" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f1a; font-family: 'JetBrains Mono', 'Fira Code', monospace; color: #e0e0e0; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useRef, useEffect, useCallback, useMemo } = React;
+
+    const COURSES = [
+      { id: 1, name: "Taller de lectura y escritura", short: "Taller lect/esc", sem: 1, prereqs: [] },
+      { id: 2, name: "Teoría y crítica literaria I", short: "Teoría y crít I", sem: 1, prereqs: [] },
+      { id: 3, name: "Lingüística general", short: "Lingüística gral", sem: 1, prereqs: [] },
+      { id: 4, name: "Filosofía", short: "Filosofía", sem: 1, prereqs: [] },
+      { id: 5, name: "Gramática", short: "Gramática", sem: 2, prereqs: [3] },
+      { id: 6, name: "Alfabetización", short: "Alfabetización", sem: 2, prereqs: [1, 2] },
+      { id: 7, name: "Literatura del siglo XX", short: "Lit siglo XX", sem: 2, prereqs: [1, 2] },
+      { id: 8, name: "Optativa I", short: "Optativa I", sem: 3, prereqs: [] },
+      { id: 9, name: "Análisis y producción de materiales", short: "Anál/prod mat", sem: 3, prereqs: [1, 2, 3] },
+      { id: 10, name: "Retórica", short: "Retórica", sem: 3, prereqs: [1, 2] },
+      { id: 11, name: "Literatura argentina II", short: "Lit arg II", sem: 3, prereqs: [1, 2] },
+      { id: 12, name: "Literatura Infantil y Juvenil", short: "Lit Inf y Juv", sem: 4, prereqs: [1, 2] },
+      { id: 13, name: "Didáctica de la literatura", short: "Didáct literatura", sem: 4, prereqs: [10, 7, 11] },
+      { id: 14, name: "Lengua y literatura latinas I", short: "Latín I", sem: 4, prereqs: [] },
+      { id: 15, name: "Teoría y crítica literaria II", short: "Teoría y crít II", sem: 4, prereqs: [2] },
+      { id: 16, name: "Lengua y literatura latina II", short: "Latín II", sem: 5, prereqs: [14] },
+      { id: 17, name: "Optativa orientada I", short: "Opt orient I", sem: 5, prereqs: [] },
+      { id: 18, name: "Literatura latinoamericana II", short: "Lit latam II", sem: 5, prereqs: [1, 2] },
+      { id: 19, name: "Estudios sociolingüísticos", short: "Est socioling", sem: 5, prereqs: [5] },
+      { id: 20, name: "Optativa orientada II", short: "Opt orient II", sem: 6, prereqs: [] },
+      { id: 21, name: "Optativa orientada III", short: "Opt orient III", sem: 6, prereqs: [] },
+      { id: 22, name: "Optativa orientada IV", short: "Opt orient IV", sem: 6, prereqs: [] },
+      { id: 23, name: "Epistemología y conoc. ling-escolar", short: "Epist/conoc ling", sem: 6, prereqs: [15, 19] },
+      { id: 24, name: "Didáctica de la lengua", short: "Didáct lengua", sem: 7, prereqs: [5, 19] },
+      { id: 25, name: "Optativa II", short: "Optativa II", sem: 7, prereqs: [] },
+      { id: 26, name: "Literatura del siglo XIX", short: "Lit siglo XIX", sem: 7, prereqs: [1, 2] },
+      { id: 27, name: "Optativa orientada V", short: "Opt orient V", sem: 7, prereqs: [] },
+      { id: 28, name: "Metodología de la Investigación", short: "Metodología inv", sem: 8, prereqs: [15, 19, 13, 24] },
+      { id: 29, name: "Lengua y literatura griegas I", short: "Griego I", sem: 8, prereqs: [] },
+      { id: 30, name: "Literatura española", short: "Lit española", sem: 8, prereqs: [1, 2] },
+      { id: 31, name: "Análisis del discurso", short: "Anál discurso", sem: 8, prereqs: [5] },
+      { id: 32, name: "Lit del Renacimiento y del Barroco", short: "Lit Renacentista", sem: 9, prereqs: [1, 2] },
+      { id: 33, name: "Literatura latinoamericana I", short: "Lit latam I", sem: 9, prereqs: [1, 2] },
+      { id: 34, name: "Lengua y literatura griegas II", short: "Griego II", sem: 9, prereqs: [29] },
+      { id: 35, name: "Literatura Medieval", short: "Lit Medieval", sem: 9, prereqs: [1, 2] },
+      { id: 36, name: "Literatura argentina I", short: "Lit arg I", sem: 10, prereqs: [1, 2] },
+      { id: 37, name: "Literatura de la Ilustración", short: "Lit Ilustración", sem: 10, prereqs: [1, 2] },
+      { id: 38, name: "Proyecto de Trabajo Final", short: "Trabajo Final", sem: 10, prereqs: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28] },
+    ];
+
+    const YEAR_COLORS = {
+      1: { border: "#e94560", text: "#e94560", label: "1° Año" },
+      2: { border: "#f5a623", text: "#f5a623", label: "2° Año" },
+      3: { border: "#7ed6df", text: "#7ed6df", label: "3° Año" },
+      4: { border: "#a29bfe", text: "#a29bfe", label: "4° Año" },
+      5: { border: "#55efc4", text: "#55efc4", label: "5° Año" },
+    };
+
+    const getYear = (sem) => Math.ceil(sem / 2);
+
+    function getUnlocks(courseId) {
+      return COURSES.filter(c => c.prereqs.includes(courseId)).map(c => c.id);
+    }
+
+    function getAllDescendants(courseId) {
+      const visited = new Set();
+      const queue = [courseId];
+      while (queue.length > 0) {
+        const current = queue.shift();
+        const unlocks = getUnlocks(current);
+        for (const u of unlocks) {
+          if (!visited.has(u)) {
+            visited.add(u);
+            queue.push(u);
+          }
+        }
+      }
+      return visited;
+    }
+
+    function getAllAncestors(courseId) {
+      const course = COURSES.find(c => c.id === courseId);
+      if (!course) return new Set();
+      const visited = new Set();
+      const queue = [...course.prereqs];
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (!visited.has(current)) {
+          visited.add(current);
+          const parent = COURSES.find(c => c.id === current);
+          if (parent) queue.push(...parent.prereqs);
+        }
+      }
+      return visited;
+    }
+
+    function CurriculumMap() {
+      const [selected, setSelected] = useState(null);
+      const [mode, setMode] = useState("unlocks");
+      const svgRef = useRef(null);
+      const containerRef = useRef(null);
+      const [dims, setDims] = useState({ w: 1200 });
+
+      const NODE_W = 130;
+      const NODE_H = 52;
+      const SEM_GAP_Y = 90;
+      const YEAR_GAP_Y = 20;
+      const PAD_TOP = 70;
+
+      const semesters = useMemo(() => {
+        const map = {};
+        COURSES.forEach(c => {
+          if (!map[c.sem]) map[c.sem] = [];
+          map[c.sem].push(c);
+        });
+        return map;
+      }, []);
+
+      const positions = useMemo(() => {
+        const pos = {};
+        let currentY = PAD_TOP;
+        for (let sem = 1; sem <= 10; sem++) {
+          const items = semesters[sem] || [];
+          const totalW = items.length * NODE_W + (items.length - 1) * 16;
+          const startX = (dims.w - totalW) / 2;
+          items.forEach((c, i) => {
+            pos[c.id] = { x: startX + i * (NODE_W + 16), y: currentY };
+          });
+          currentY += SEM_GAP_Y;
+          if (sem % 2 === 0 && sem < 10) currentY += YEAR_GAP_Y;
+        }
+        return pos;
+      }, [dims.w, semesters]);
+
+      const totalH = useMemo(() => {
+        const vals = Object.values(positions);
+        if (vals.length === 0) return 600;
+        return Math.max(...vals.map(p => p.y)) + NODE_H + 40;
+      }, [positions]);
+
+      useEffect(() => {
+        const handleResize = () => {
+          if (containerRef.current) {
+            setDims({ w: Math.max(800, containerRef.current.clientWidth) });
+          }
+        };
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+      }, []);
+
+      const highlighted = useMemo(() => {
+        if (!selected) return { nodes: new Set(), edges: new Set() };
+        const nodes = new Set([selected]);
+        const edges = new Set();
+        if (mode === "unlocks") {
+          const desc = getAllDescendants(selected);
+          desc.forEach(d => nodes.add(d));
+          COURSES.forEach(c => {
+            if (nodes.has(c.id) && c.id !== selected) {
+              c.prereqs.forEach(p => {
+                if (nodes.has(p)) edges.add(p + "-" + c.id);
+              });
+            }
+          });
+          getUnlocks(selected).forEach(u => edges.add(selected + "-" + u));
+        } else {
+          const anc = getAllAncestors(selected);
+          anc.forEach(a => nodes.add(a));
+          COURSES.forEach(c => {
+            if (nodes.has(c.id)) {
+              c.prereqs.forEach(p => {
+                if (nodes.has(p)) edges.add(p + "-" + c.id);
+              });
+            }
+          });
+          const course = COURSES.find(c => c.id === selected);
+          if (course) course.prereqs.forEach(p => edges.add(p + "-" + selected));
+        }
+        return { nodes, edges };
+      }, [selected, mode]);
+
+      const edges = useMemo(() => {
+        const arr = [];
+        COURSES.forEach(c => {
+          c.prereqs.forEach(p => {
+            if (c.id === 38 && ![13, 15, 19, 24, 28].includes(p)) return;
+            arr.push({ from: p, to: c.id, key: p + "-" + c.id });
+          });
+        });
+        return arr;
+      }, []);
+
+      const getEdgePath = useCallback((from, to) => {
+        const p1 = positions[from];
+        const p2 = positions[to];
+        if (!p1 || !p2) return "";
+        const x1 = p1.x + NODE_W / 2;
+        const y1 = p1.y + NODE_H;
+        const x2 = p2.x + NODE_W / 2;
+        const y2 = p2.y;
+        const dy = (y2 - y1) * 0.45;
+        return "M " + x1 + " " + y1 + " C " + x1 + " " + (y1 + dy) + ", " + x2 + " " + (y2 - dy) + ", " + x2 + " " + y2;
+      }, [positions]);
+
+      const yearLabels = useMemo(() => {
+        const labels = [];
+        for (let year = 1; year <= 5; year++) {
+          const sem1 = year * 2 - 1;
+          const items = semesters[sem1] || [];
+          if (items.length > 0) {
+            const firstPos = positions[items[0].id];
+            if (firstPos) labels.push({ year, y: firstPos.y + NODE_H / 2 });
+          }
+        }
+        return labels;
+      }, [positions, semesters]);
+
+      return (
+        <div ref={containerRef} style={{ background: "#0f0f1a", minHeight: "100vh", fontFamily: "'JetBrains Mono', monospace", color: "#e0e0e0", overflowX: "auto" }}>
+          <div style={{ padding: "20px 24px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.5px" }}>
+                Licenciatura en Letras — UNSAM
+              </h1>
+              <p style={{ fontSize: 11, color: "#666", marginTop: 4, letterSpacing: "0.5px" }}>
+                MAPA DE CORRELATIVIDADES · Hacé click en una materia para ver sus dependencias
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 4, background: "#1a1a2e", borderRadius: 8, padding: 3 }}>
+              <button onClick={() => setMode("unlocks")} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "none", borderRadius: 6, cursor: "pointer", background: mode === "unlocks" ? "#e94560" : "transparent", color: mode === "unlocks" ? "#fff" : "#888", fontWeight: 500, transition: "all 0.2s" }}>
+                ↓ Qué habilita
+              </button>
+              <button onClick={() => setMode("prereqs")} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "none", borderRadius: 6, cursor: "pointer", background: mode === "prereqs" ? "#a29bfe" : "transparent", color: mode === "prereqs" ? "#fff" : "#888", fontWeight: 500, transition: "all 0.2s" }}>
+                ↑ Qué necesita
+              </button>
+              {selected && (
+                <button onClick={() => setSelected(null)} style={{ padding: "6px 14px", fontSize: 11, fontFamily: "inherit", border: "1px solid #333", borderRadius: 6, cursor: "pointer", background: "transparent", color: "#888", fontWeight: 500 }}>
+                  ✕ Limpiar
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, padding: "8px 24px 12px", flexWrap: "wrap" }}>
+            {Object.values(YEAR_COLORS).map((yc, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, border: "2px solid " + yc.border, background: "transparent" }} />
+                <span style={{ fontSize: 10, color: "#777", letterSpacing: "0.5px" }}>{yc.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <svg ref={svgRef} width={dims.w} height={totalH} style={{ display: "block" }}>
+            <defs>
+              <marker id="arrow-dim" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M 0 0 L 6 3 L 0 6 Z" fill="#2a2a3e" />
+              </marker>
+              <marker id="arrow-lit" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M 0 0 L 6 3 L 0 6 Z" fill={mode === "unlocks" ? "#e94560" : "#a29bfe"} />
+              </marker>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            {yearLabels.map(({ year, y }) => (
+              <text key={year} x={14} y={y} fill={YEAR_COLORS[year].border} fontSize={10} fontFamily="'Space Grotesk', sans-serif" fontWeight={600} opacity={0.4} dominantBaseline="middle">
+                {year}°
+              </text>
+            ))}
+
+            {edges.map(e => {
+              const isLit = selected && highlighted.edges.has(e.key);
+              return (
+                <path key={e.key} d={getEdgePath(e.from, e.to)} fill="none" stroke={isLit ? (mode === "unlocks" ? "#e94560" : "#a29bfe") : "#1e1e30"} strokeWidth={isLit ? 2 : 1} markerEnd={isLit ? "url(#arrow-lit)" : "url(#arrow-dim)"} opacity={selected ? (isLit ? 0.9 : 0.15) : 0.4} style={{ transition: "all 0.3s ease" }} />
+              );
+            })}
+
+            {(() => {
+              const tfPos = positions[38];
+              if (!tfPos) return null;
+              return (
+                <text x={tfPos.x + NODE_W / 2} y={tfPos.y + NODE_H + 16} textAnchor="middle" fill="#555" fontSize={9} fontFamily="'JetBrains Mono', monospace">
+                  Requiere materias 1–28 + Idioma II
+                </text>
+              );
+            })()}
+
+            {COURSES.map(c => {
+              const pos = positions[c.id];
+              if (!pos) return null;
+              const year = getYear(c.sem);
+              const color = YEAR_COLORS[year];
+              const isSelected = selected === c.id;
+              const isHighlighted = selected && highlighted.nodes.has(c.id);
+              const isDimmed = selected && !isHighlighted;
+              const unlockCount = getUnlocks(c.id).length;
+
+              return (
+                <g key={c.id} onClick={() => setSelected(selected === c.id ? null : c.id)} style={{ cursor: "pointer", transition: "opacity 0.3s" }} opacity={isDimmed ? 0.15 : 1}>
+                  <rect x={pos.x} y={pos.y} width={NODE_W} height={NODE_H} rx={6} fill={isSelected ? color.border + "22" : "#12121e"} stroke={isSelected ? color.border : (isHighlighted ? color.border + "aa" : "#1e1e30")} strokeWidth={isSelected ? 2 : 1} filter={isSelected ? "url(#glow)" : undefined} />
+                  <rect x={pos.x + 4} y={pos.y + 4} width={18} height={14} rx={3} fill={color.border + "33"} />
+                  <text x={pos.x + 13} y={pos.y + 14} textAnchor="middle" fill={color.text} fontSize={8} fontFamily="'JetBrains Mono', monospace" fontWeight={600}>
+                    {c.id}
+                  </text>
+                  <text x={pos.x + NODE_W / 2} y={pos.y + 28} textAnchor="middle" fill={isSelected || isHighlighted ? "#eee" : "#999"} fontSize={9} fontFamily="'JetBrains Mono', monospace" fontWeight={isSelected ? 600 : 400}>
+                    {c.short}
+                  </text>
+                  {unlockCount > 0 && (
+                    <text x={pos.x + NODE_W / 2} y={pos.y + 43} textAnchor="middle" fill={color.border + "66"} fontSize={8} fontFamily="'JetBrains Mono', monospace">
+                      habilita {unlockCount}
+                    </text>
+                  )}
+                  {unlockCount === 0 && c.prereqs.length > 0 && (
+                    <text x={pos.x + NODE_W / 2} y={pos.y + 43} textAnchor="middle" fill="#333" fontSize={8} fontFamily="'JetBrains Mono', monospace">
+                      terminal
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+
+          {selected && (() => {
+            const c = COURSES.find(x => x.id === selected);
+            if (!c) return null;
+            const year = getYear(c.sem);
+            const color = YEAR_COLORS[year];
+            const unlocks = getUnlocks(selected);
+            const allDesc = getAllDescendants(selected);
+            const allAnc = getAllAncestors(selected);
+
+            return (
+              <div style={{ position: "sticky", bottom: 0, left: 0, right: 0, background: "linear-gradient(to top, #0f0f1a 80%, transparent)", padding: "24px 24px 16px" }}>
+                <div style={{ background: "#16162a", border: "1px solid " + color.border + "44", borderRadius: 10, padding: "14px 18px", maxWidth: 700, margin: "0 auto" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <span style={{ background: color.border + "33", color: color.text, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {c.id}
+                    </span>
+                    <span style={{ color: "#eee", fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600 }}>
+                      {c.name}
+                    </span>
+                    <span style={{ color: "#555", fontSize: 11, marginLeft: "auto", fontFamily: "'JetBrains Mono', monospace" }}>
+                      Cuatrimestre {c.sem}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 20, fontSize: 11, color: "#888", fontFamily: "'JetBrains Mono', monospace", flexWrap: "wrap" }}>
+                    <div>
+                      <span style={{ color: "#a29bfe" }}>Requiere:</span>{" "}
+                      {c.prereqs.length === 0 ? (
+                        <span style={{ color: "#55efc4" }}>sin correlativas</span>
+                      ) : (
+                        c.prereqs.map((p, i) => {
+                          const pc = COURSES.find(x => x.id === p);
+                          return (
+                            <span key={p}>
+                              {i > 0 && ", "}
+                              <span style={{ color: "#ccc", cursor: "pointer", textDecoration: "underline", textDecorationColor: "#333" }} onClick={(e) => { e.stopPropagation(); setSelected(p); }}>
+                                {pc ? pc.short : p}
+                              </span>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                    <div>
+                      <span style={{ color: "#e94560" }}>Habilita:</span>{" "}
+                      {unlocks.length === 0 ? (
+                        <span style={{ color: "#666" }}>—</span>
+                      ) : (
+                        unlocks.map((u, i) => {
+                          const uc = COURSES.find(x => x.id === u);
+                          return (
+                            <span key={u}>
+                              {i > 0 && ", "}
+                              <span style={{ color: "#ccc", cursor: "pointer", textDecoration: "underline", textDecorationColor: "#333" }} onClick={(e) => { e.stopPropagation(); setSelected(u); }}>
+                                {uc ? uc.short : u}
+                              </span>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                  {(allDesc.size > 0 || allAnc.size > 0) && (
+                    <div style={{ marginTop: 8, fontSize: 10, color: "#555", fontFamily: "'JetBrains Mono', monospace" }}>
+                      {allAnc.size > 0 && <span>Cadena completa hacia atrás: {allAnc.size} materias · </span>}
+                      {allDesc.size > 0 && <span>Cadena completa hacia adelante: {allDesc.size} materias</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<CurriculumMap />);
+  </script>
+</body>
+</html>
